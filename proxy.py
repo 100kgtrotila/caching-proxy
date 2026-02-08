@@ -1,11 +1,15 @@
-import redis
-from anyio.functools import cache
-from fastapi import Request, Response
-from main import app
+import httpx
+import redis.asyncio as redis
+from fastapi import Request, Response, APIRouter
 
+router = APIRouter()
 
-@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+@router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
 async def prodxy_handler(path: str, request: Request):
+    http_client: httpx.AsyncClient = request.app.state.http_client
+    redis_client: redis.Redis = redis.app.state.redis
+
+
     full_path = str(request.url).replace(str(request.base_url),"")
     cache_key = f"{request.method}:{full_path}"
 
@@ -20,3 +24,13 @@ async def prodxy_handler(path: str, request: Request):
                     "X-Cache": "HIT"
                 }
             )
+
+    try:
+        upstream_response = await http_client.request(
+            method=request.method,
+            url=full_path,
+            headers=request.headers,
+            content=await request.body()
+        )
+    except httpx.ConnectError:
+        return Response("Failed to connect", status_code=502)

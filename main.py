@@ -1,11 +1,9 @@
-import argparse
-from base64 import decode
+from contextlib import asynccontextmanager
 
 import httpx
-import uvicorn
 import redis.asyncio as redis
-from fastapi import FastAPI, Request, Response
-from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from proxy import router as proxy_router
 
 config = {
     "origin": "",
@@ -23,5 +21,5 @@ async def lifespan(app: FastAPI):
     await app.state.redis.close()
 
 app = FastAPI(lifespan=lifespan)
-
+app.include_router(proxy_router)
 
