@@ -34,3 +34,21 @@ async def prodxy_handler(path: str, request: Request):
         )
     except httpx.ConnectError:
         return Response("Failed to connect", status_code=502)
+
+    response_content = upstream_response.content
+
+    if response_content == "GET" and upstream_response.status_code == 200:
+        await redis_client.setex(name=cache_key, time=300, value=response_content)
+
+
+    headers = dict(upstream_response.headers)
+    headers["X-Cache"] = ["MISS"]
+
+    headers.pop("content-encodigs", None)
+    headers.pop("content-lenght", None)
+
+    return Response(
+        content=response_content,
+        status_code=upstream_response.status_code,
+        headers=headers
+    )
