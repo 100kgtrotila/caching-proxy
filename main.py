@@ -18,7 +18,6 @@ async def lifespan(app: FastAPI):
     app.state.http_client = httpx.AsyncClient(base_url=config["origin"])
     app.state.redis = redis.from_url(config["redis_url"], decode_responses=False)
     yield
-
     await app.state.http_client.aclose()
     await app.state.redis.close()
 
@@ -28,24 +27,29 @@ app.include_router(proxy_router)
 
 def main():
     parser = argparse.ArgumentParser(description="Redis Caching Proxy")
-    parser.add_argument("--port", type=int, default=True)
-    parser.add_argument("--origin", type=str, required=True)
+    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--origin", type=str)
     parser.add_argument("--clear-cache", action="store_true")
 
     args = parser.parse_args()
 
-    if args.clear_chache:
+    if args.clear_cache:
         import redis as sync_redis
-        r = sync_redis.from_url(config["redis"])
+        r = sync_redis.from_url(config["redis_url"])
         r.flushdb()
-        print("Chache cleared")
+        print("Cache cleared")
+        return
+
+    if not args.origin:
+        print("Error: --origin is required unless clearing cache")
         return
 
     config["port"] = args.port
     config["origin"] = args.origin
 
-    print(f"Redis Proxy on port {args.port} -> {args.origin}")
+    print(f"🚀 Redis Proxy running on port {args.port} -> forwarding to {args.origin}")
+
     uvicorn.run(app, host="127.0.0.1", port=args.port)
 
-    if __name__ == "__main__":
-        main()
+if __name__ == "__main__":
+    main()
